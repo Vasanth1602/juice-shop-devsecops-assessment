@@ -12,6 +12,9 @@ pipeline {
         IMAGE_NAME      = 'juice-shop'
         CONTAINER_NAME  = 'juice-shop-dev'
         APP_PORT        = '3000'
+        // NVD API key stored as a Jenkins Secret Text credential.
+        // Never hardcoded — Jenkins injects and masks it at runtime.
+        NVD_API_KEY     = credentials('NVD_API_KEY')
     }
 
     stages {
@@ -49,23 +52,26 @@ pipeline {
         // --failOnCVSS 11 : CVSS scores are 0-10, so this never blocks the
         //   build. For this assessment the goal is detection and reporting,
         //   not build gating.
+        // --nvdApiKey    : Authenticates with NVD API to avoid rate-limiting
+        //   on the initial database download. Key is injected from a Jenkins
+        //   Secret Text credential — never stored in source control.
         // Reports are written to the 'reports/' directory.
         // Publishing is handled in the pipeline-level post/always block so
         // the report surfaces even if a later stage (Docker Build, Deploy)
         // fails.
-        // NOTE: First run downloads ~500 MB of NVD data. Expect 15-30 min.
         // ─────────────────────────────────────────────────────────────────
         stage('OWASP Dependency Check') {
             steps {
                 bat 'if not exist reports mkdir reports'
-                dependencyCheck additionalArguments: '''
+                dependencyCheck additionalArguments: """
                     --scan ./
                     --format HTML
                     --format XML
                     --out reports/
                     --prettyPrint
                     --failOnCVSS 11
-                ''', odcInstallation: 'OWASP-DC'
+                    --nvdApiKey ${NVD_API_KEY}
+                """, odcInstallation: 'OWASP-DC'
             }
         }
 
