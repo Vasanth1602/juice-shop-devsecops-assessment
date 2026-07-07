@@ -29,16 +29,15 @@ pipeline {
 
         // ─────────────────────────────────────────────────────────────────
         // STAGE 2 — Install Dependencies
-        // Runs 'npm install' at the repo root.
-        // The postinstall hook automatically:
-        //   1. Installs frontend deps (cd frontend && npm install)
-        //   2. Builds the Angular frontend (npm run build:frontend)
-        //   3. Compiles TypeScript backend (npm run build:server)
-        // This produces node_modules/ ready for OWASP DC to scan.
+        // Installs all project dependencies.
+        // The project's npm lifecycle scripts perform any additional
+        // build steps required by the application.
         // ─────────────────────────────────────────────────────────────────
         stage('Install Dependencies') {
             steps {
-                sh 'npm install'
+                bat 'node --version'
+                bat 'npm --version'
+                bat 'npm install'
                 echo '✅ Dependencies installed and build complete.'
             }
         }
