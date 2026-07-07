@@ -42,9 +42,41 @@ pipeline {
             }
         }
 
+        // ─────────────────────────────────────────────────────────────────
+        // STAGE 3 — OWASP Dependency Check
+        // Scans project dependencies against the NVD (National Vulnerability
+        // Database) to identify known CVEs.
+        // --failOnCVSS 11 : CVSS scores are 0-10, so this never blocks the
+        //   build. For this assessment the goal is detection and reporting,
+        //   not build gating.
+        // Reports are written to the 'reports/' directory.
+        // Publishing is handled in the pipeline-level post/always block so
+        // the report surfaces even if a later stage (Docker Build, Deploy)
+        // fails.
+        // NOTE: First run downloads ~500 MB of NVD data. Expect 15-30 min.
+        // ─────────────────────────────────────────────────────────────────
+        stage('OWASP Dependency Check') {
+            steps {
+                bat 'if not exist reports mkdir reports'
+                dependencyCheck additionalArguments: '''
+                    --scan ./
+                    --format HTML
+                    --format XML
+                    --out reports/
+                    --prettyPrint
+                    --failOnCVSS 11
+                ''', odcInstallation: 'OWASP-DC'
+            }
+        }
+
     } // end stages
 
     post {
+        always {
+            // Publish the DC report regardless of which stage failed.
+            // The report is the primary deliverable of this pipeline.
+            dependencyCheckPublisher pattern: 'reports/dependency-check-report.xml'
+        }
         success { echo '🟢 Pipeline succeeded.' }
         failure { echo '🔴 Pipeline failed.' }
     }
