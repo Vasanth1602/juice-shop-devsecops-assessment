@@ -1,246 +1,382 @@
-# ![Juice Shop Logo](https://raw.githubusercontent.com/juice-shop/juice-shop/master/frontend/src/assets/public/images/JuiceShop_Logo_100px.png) OWASP Juice Shop
+# Juice Shop — DevSecOps Assessment
 
-[![OWASP Flagship](https://img.shields.io/badge/owasp-flagship%20project-48A646.svg)](https://owasp.org/projects/#sec-flagships)
-[![GitHub release](https://img.shields.io/github/release/juice-shop/juice-shop.svg)](https://github.com/juice-shop/juice-shop/releases/latest)
-[![Twitter Follow](https://img.shields.io/twitter/follow/owasp_juiceshop.svg?style=social&label=Follow)](https://twitter.com/owasp_juiceshop)
-[![Subreddit subscribers](https://img.shields.io/reddit/subreddit-subscribers/owasp_juiceshop?style=social)](https://reddit.com/r/owasp_juiceshop)
+> **OWASP Juice Shop** is the world's most widely used intentionally insecure web application, maintained by OWASP. Every vulnerability it contains is deliberate — SQL Injection, XSS, Broken Authentication, Insecure Dependencies — all planted on purpose for security training. This assessment builds a CI/CD pipeline around it to demonstrate DevSecOps practices: automated build, containerised deployment, and dependency vulnerability scanning.
 
-[![CI/CD Pipeline](https://github.com/juice-shop/juice-shop/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/juice-shop/juice-shop/actions/workflows/ci.yml)
-[![Release Pipeline](https://github.com/juice-shop/juice-shop/actions/workflows/release.yml/badge.svg)](https://github.com/juice-shop/juice-shop/actions/workflows/release.yml)
-[![Coverage Status](https://coveralls.io/repos/github/juice-shop/juice-shop/badge.svg?branch=develop)](https://coveralls.io/github/juice-shop/juice-shop?branch=develop)
-[![Cypress tests](https://img.shields.io/endpoint?url=https://dashboard.cypress.io/badge/simple/3hrkhu/develop&style=flat&logo=cypress)](https://dashboard.cypress.io/projects/3hrkhu/runs)
-[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/223/badge)](https://www.bestpractices.dev/projects/223)
-![GitHub stars](https://img.shields.io/github/stars/juice-shop/juice-shop.svg?label=GitHub%20%E2%98%85&style=flat)
-[![Static Badge](https://img.shields.io/badge/OWASP-Code_of_Conduct-blue)](CODE_OF_CONDUCT.md)
+---
 
-> [The most trustworthy online shop out there.](https://twitter.com/dschadow/status/706781693504589824)
-> ([@dschadow](https://github.com/dschadow)) —
-> [The best juice shop on the whole internet!](https://twitter.com/shehackspurple/status/907335357775085568)
-> ([@shehackspurple](https://twitter.com/shehackspurple)) —
-> [Actually the most bug-free vulnerable application in existence!](https://youtu.be/TXAztSpYpvE?t=26m35s)
-> ([@vanderaj](https://twitter.com/vanderaj)) —
-> [First you 😂😂then you 😢](https://twitter.com/kramse/status/1073168529405472768)
-> ([@kramse](https://twitter.com/kramse)) —
-> [But this doesn't have anything to do with juice.](https://twitter.com/coderPatros/status/1199268774626488320)
-> ([@coderPatros' wife](https://twitter.com/coderPatros))
+## Table of Contents
 
-OWASP Juice Shop is probably the most modern and sophisticated insecure web application! It can be used in security
-trainings, awareness demos, CTFs and as a guinea pig for security tools! Juice Shop encompasses vulnerabilities from the
-entire
-[OWASP Top Ten](https://owasp.org/www-project-top-ten) along with many other security flaws found in real-world
-applications!
+1. [Objectives](#objectives)
+2. [Assessment Summary](#assessment-summary)
+3. [Tech Stack](#tech-stack)
+4. [Repository Structure](#repository-structure)
+5. [Jenkins Pipeline Stages](#jenkins-pipeline-stages)
+6. [OWASP Dependency-Check Integration](#owasp-dependency-check-integration)
+7. [NVD API Key Configuration](#nvd-api-key-configuration)
+8. [Troubleshooting & Investigation](#troubleshooting--investigation)
+9. [Results](#results)
+10. [How to Run](#how-to-run)
+11. [Future Improvements](#future-improvements)
 
-![Juice Shop Screenshot Slideshow](screenshots/slideshow.gif)
+---
 
-For a detailed introduction, full list of features and architecture overview please visit the official project page:
-<https://owasp-juice.shop>
+## Objectives
 
-## Table of contents
+This assessment implements a complete DevSecOps pipeline for OWASP Juice Shop with the following goals:
 
-- [Setup](#setup)
-    - [From Sources](#from-sources)
-    - [Packaged Distributions](#packaged-distributions)
-    - [Docker Container](#docker-container)
-    - [Vagrant](#vagrant)
-- [Demo](#demo)
-- [Documentation](#documentation)
-    - [Node.js version compatibility](#nodejs-version-compatibility)
-    - [Troubleshooting](#troubleshooting)
-    - [Official companion guide](#official-companion-guide)
-- [Contributing](#contributing)
-- [References](#references)
-- [Merchandise](#merchandise)
-- [Donations](#donations)
-- [Contributors](#contributors)
-- [Licensing](#licensing)
+- **Build** the application from source code using an automated Jenkins pipeline
+- **Deploy** the application as a Docker container on localhost
+- **Scan** project dependencies for known CVEs using OWASP Dependency-Check
+- **Report** vulnerability findings as a published Jenkins artifact
+- **Document** the full implementation, including troubleshooting and decisions made
 
-## Setup
+---
 
-> You can find some less common installation variations as well as instructions to run Juice Shop on a variety of cloud computing providers in
-> [the _Running OWASP Juice Shop_ documentation](https://pwning.owasp-juice.shop/companion-guide/latest/part1/running.html).
+## Assessment Summary
 
-> Some challenges require an AI/LLM provider to work properly. Check the
-> [_Setting up external dependencies_ documentation](https://pwning.owasp-juice.shop/companion-guide/snapshot/part1/running.html#_setting_up_external_dependencies)
-> for instructions on configuring local or cloud-based AI providers.
+This assessment implements a complete Jenkins-based CI/CD pipeline for OWASP Juice Shop, including source code checkout, dependency installation, Docker image creation, container deployment, and automated health verification on localhost.
 
-### From Sources
+OWASP Dependency-Check was fully integrated into the Jenkins pipeline using the official Jenkins plugin with the NVD API key securely managed through Jenkins Credentials. During testing, the Dependency-Check stage executed successfully but could not complete because the initial NVD vulnerability database download repeatedly failed with HTTP 503 (Service Unavailable) responses from the NVD API.
 
-![GitHub repo size](https://img.shields.io/github/repo-size/juice-shop/juice-shop.svg)
+To verify that the issue was not related to the pipeline configuration, the same database bootstrap was also tested using the official OWASP Dependency-Check Docker image with a persistent mounted data directory. The Docker-based approach produced the same HTTP 503 error, confirming that the issue originated from the external NVD service rather than the Jenkins pipeline or Dependency-Check configuration.
 
-1. Install [node.js](#nodejs-version-compatibility)
-2. Run `git clone https://github.com/juice-shop/juice-shop.git --depth 1` (or
-   clone [your own fork](https://github.com/juice-shop/juice-shop/fork)
-   of the repository)
-3. Go into the cloned folder with `cd juice-shop`
-4. Run `npm install` (only has to be done before first start or when you change the source code)
-5. Run `npm start`
-6. Browse to <http://localhost:3000>
+All implementation steps, troubleshooting activities, console outputs, and deployment evidence have been documented in this repository.
 
-### Packaged Distributions
+---
 
-[![GitHub release](https://img.shields.io/github/downloads/juice-shop/juice-shop/total.svg)](https://github.com/juice-shop/juice-shop/releases/latest)
-[![SourceForge](https://img.shields.io/sourceforge/dm/juice-shop?label=sourceforge%20downloads)](https://sourceforge.net/projects/juice-shop/)
-[![SourceForge](https://img.shields.io/sourceforge/dt/juice-shop?label=sourceforge%20downloads)](https://sourceforge.net/projects/juice-shop/)
+## Tech Stack
 
-1. Install a 64bit [node.js](#nodejs-version-compatibility) on your Windows, MacOS or Linux machine
-2. Download `juice-shop-<version>_<node-version>_<os>_x64.zip` (or
-   `.tgz`) attached to
-   [latest release](https://github.com/juice-shop/juice-shop/releases/latest)
-3. Unpack and `cd` into the unpacked folder
-4. Run `npm start`
-5. Browse to <http://localhost:3000>
+| Tool | Role |
+|---|---|
+| **Jenkins** | CI/CD orchestration (Pipeline as Code via Jenkinsfile) |
+| **Docker** | Application containerisation and deployment |
+| **Node.js 24** | Application runtime (required: Node 22–26) |
+| **npm** | Dependency management and build lifecycle |
+| **OWASP Dependency-Check** | Software Composition Analysis (SCA) — CVE detection |
+| **NVD (National Vulnerability Database)** | CVE data source consumed by Dependency-Check |
+| **GitHub** | Source control and remote repository |
+| **Angular 21** | Frontend framework (built as part of `npm install`) |
 
-> Each packaged distribution includes some binaries for `sqlite3` and
-> `libxmljs2` bound to the OS and node.js version which `npm install` was
-> executed on.
+---
 
-### Docker Container
+## Repository Structure
 
-[![Docker Pulls](https://img.shields.io/docker/pulls/bkimminich/juice-shop.svg)](https://hub.docker.com/r/bkimminich/juice-shop)
-![Docker Stars](https://img.shields.io/docker/stars/bkimminich/juice-shop.svg)
-[![](https://images.microbadger.com/badges/image/bkimminich/juice-shop.svg)](https://microbadger.com/images/bkimminich/juice-shop
-"Get your own image badge on microbadger.com")
-[![](https://images.microbadger.com/badges/version/bkimminich/juice-shop.svg)](https://microbadger.com/images/bkimminich/juice-shop
-"Get your own version badge on microbadger.com")
+```
+juice-shop-devsecops-assessment/
+│
+├── Jenkinsfile                  ← Pipeline definition (all stages)
+├── Dockerfile                   ← Multi-stage Docker build (node:24 → distroless)
+├── package.json                 ← Backend dependencies and npm scripts
+├── frontend/
+│   └── package.json             ← Frontend (Angular) dependencies
+├── screenshots/                 ← Evidence of pipeline execution and troubleshooting
+├── app.ts                       ← Application entry point
+├── server.ts                    ← Express server setup
+├── routes/                      ← REST API route handlers
+├── models/                      ← Sequelize ORM models (SQLite)
+├── config/
+│   └── default.yml              ← Default application configuration
+└── .github/
+    └── workflows/               ← Original GitHub Actions CI reference
+```
 
-1. Install [Docker](https://www.docker.com)
-2. Run `docker pull bkimminich/juice-shop`
-3. Run `docker run --rm -p 127.0.0.1:3000:3000 bkimminich/juice-shop`
-4. Browse to <http://localhost:3000> (on macOS and Windows browse to
-   <http://192.168.99.100:3000> if you are using docker-machine instead of the native docker installation)
+> **Note**: The project has two `package.json` files — one at the root (backend) and one inside `frontend/` (Angular). Running `npm install` at the root automatically installs and builds both via the `postinstall` lifecycle hook.
 
-### Vagrant
+---
 
-1. Install [Vagrant](https://www.vagrantup.com/downloads.html) and
-   [Virtualbox](https://www.virtualbox.org/wiki/Downloads)
-2. Run `git clone https://github.com/juice-shop/juice-shop.git` (or
-   clone [your own fork](https://github.com/juice-shop/juice-shop/fork)
-   of the repository)
-3. Run `cd vagrant && vagrant up`
-4. Browse to [192.168.56.110](http://192.168.56.110)
+## Jenkins Pipeline Stages
 
-## Demo
+The pipeline is defined in [`Jenkinsfile`](./Jenkinsfile) at the repository root and uses **Pipeline script from SCM** in Jenkins. `skipDefaultCheckout(true)` is set so the automatic Jenkins checkout is suppressed — the explicit `Checkout` stage handles it instead, making it visible in the Stage View.
 
-Feel free to have a look at the latest version of OWASP Juice Shop:
-<http://demo.owasp-juice.shop>
+```
+Checkout → Install Dependencies → OWASP Dependency Check → Docker Build → Stop & Remove Old Container → Deploy Container → Health Check
+```
 
-> This is a deployment-test and sneak-peek instance only! You are __not
-> supposed__ to use this instance for your own hacking endeavours! No
-> guaranteed uptime! Guaranteed stern looks if you break it!
+### Stage 1 — Checkout
 
-## Documentation
+Explicitly clones the repository into the Jenkins workspace using `checkout scm`. This makes the checkout visible as a named stage rather than a hidden pre-pipeline operation.
 
-### Node.js version compatibility
+### Stage 2 — Install Dependencies
 
-![GitHub package.json dynamic](https://img.shields.io/github/package-json/cpu/juice-shop/juice-shop)
-![GitHub package.json dynamic](https://img.shields.io/github/package-json/os/juice-shop/juice-shop)
+Verifies the Node.js and npm versions on the agent first, then runs `npm install`. The project's postinstall lifecycle hook automatically installs frontend dependencies and builds both the Angular frontend and the TypeScript backend. This produces the `node_modules/` directory used by OWASP Dependency-Check in the next stage.
 
-OWASP Juice Shop officially supports the following versions of
-[node.js](http://nodejs.org) in line with the official
-[node.js LTS schedule](https://github.com/nodejs/LTS) as close as possible. Docker images and packaged distributions are
-offered accordingly.
+```groovy
+bat 'node --version'
+bat 'npm --version'
+bat 'npm install'
+```
 
-| node.js | Supported              | Tested             | [Packaged Distributions](#packaged-distributions) | [Docker images](#docker-container) from `master` | [Docker images](#docker-container) from `develop` |
-|:--------|:-----------------------|:-------------------|:--------------------------------------------------|:-------------------------------------------------|:--------------------------------------------------|
-| 26.x    | :heavy_check_mark:     | :heavy_check_mark: |                                                   |                                                  |                                                   |
-| 25.x    | ( :heavy_check_mark: ) | :x:                |                                                   |                                                  |                                                   |
-| 24.x    | :heavy_check_mark:     | :heavy_check_mark: | Windows (`x64`), MacOS (`x64`), Linux (`x64`)     | `latest` (`linux/amd64`, `linux/arm64`)          | `snapshot` (`linux/amd64`, `linux/arm64`)         |
-| 23.x    | :x:                    | :x:                |                                                   |                                                  |                                                   |
-| 22.x    | :heavy_check_mark:     | :heavy_check_mark: |                                                   |                                                  |                                                   |
-| <22.x   | :x:                    | :x:                |                                                   |                                                  |                                                   |
+> Verifying versions upfront fails fast if the agent has the wrong Node version (app requires Node 22–26), rather than producing a cryptic failure deep in `npm install`.
 
-Juice Shop is automatically tested _only on the latest `.x` minor version_ of each node.js version mentioned above!
-There is no guarantee that older minor node.js releases will always work with Juice Shop!
-Please make sure you stay up to date with your chosen version.
+### Stage 3 — OWASP Dependency Check
 
-### Troubleshooting
+Scans project dependencies against the NVD to identify known CVEs. The stage is fully implemented in the Jenkins pipeline and executes during pipeline runs. However, the scan cannot complete because the initial NVD vulnerability database download repeatedly fails due to HTTP 503 (Service Unavailable) responses from the NVD API. The full implementation, investigation steps, and supporting evidence are documented in the [OWASP Dependency-Check Integration](#owasp-dependency-check-integration) and [Troubleshooting & Investigation](#troubleshooting--investigation) sections below.
 
-[![Gitter](http://img.shields.io/badge/gitter-join%20chat-1dce73.svg)](https://gitter.im/bkimminich/juice-shop)
+### Stage 4 — Docker Build
 
-If you need help with the application setup please check 
-[our existing _Troubleshooting_](https://pwning.owasp-juice.shop/companion-guide/latest/part4/troubleshooting.html)
-guide. If this does not solve your issue please post your specific problem or question in the
-[Gitter Chat](https://gitter.im/bkimminich/juice-shop) where community members can best try to help you.
+Builds the Docker image using the existing project `Dockerfile`, which uses a multi-stage build: `node:24` as the build stage and `gcr.io/distroless/nodejs24-debian13` as the lean runtime. The image is tagged with `juice-shop:<BUILD_NUMBER>` for traceability across builds.
 
-:stop_sign: **Please avoid opening GitHub issues for support requests or questions!**
+```groovy
+bat "docker build -t juice-shop:${env.BUILD_NUMBER} ."
+```
 
-### Official companion guide
+### Stage 5 — Stop & Remove Old Container
 
-[![Write Goodreads Review](https://img.shields.io/badge/goodreads-write%20review-49557240.svg)](https://www.goodreads.com/review/edit/49557240)
+Cleans up any previously running container before deploying a new one. Uses `returnStatus: true` so the stage never fails even if no container exists — this makes the pipeline **idempotent** across repeated runs.
 
-OWASP Juice Shop comes with an official companion guide eBook. It will give you a complete overview of all
-vulnerabilities found in the application including hints how to spot and exploit them. In the appendix you will even
-find complete step-by-step solutions to every challenge. Extensive documentation of
-[custom re-branding](https://pwning.owasp-juice.shop/companion-guide/latest/part4/customization.html),
-[CTF-support](https://pwning.owasp-juice.shop/companion-guide/latest/part4/ctf.html),
-[trainer's guide](https://pwning.owasp-juice.shop/companion-guide/latest/part4/trainers.html)
-and much more is also included.
+```groovy
+bat(returnStatus: true, script: "docker stop juice-shop-dev")
+bat(returnStatus: true, script: "docker rm juice-shop-dev")
+```
 
-[Pwning OWASP Juice Shop](https://leanpub.com/juice-shop) is published under
-[CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/)
-and is available **for free** in PDF, Kindle and ePub format on LeanPub. You can also
-[browse the full content online](https://pwning.owasp-juice.shop)!
+### Stage 6 — Deploy Container
 
-[<img alt="Pwning OWASP Juice Shop cover" src="https://raw.githubusercontent.com/juice-shop/pwning-juice-shop/master/docs/modules/ROOT/assets/images/cover.jpg" width="200"/>](https://leanpub.com/juice-shop)
-[<img alt="Pwning OWASP Juice Shop back cover" src="https://raw.githubusercontent.com/juice-shop/pwning-juice-shop/master/docs/modules/ROOT/assets/images/introduction/back.jpg" width="200"/>](https://leanpub.com/juice-shop)
+Runs the newly built image as a detached container, mapping port 3000.
 
-## Contributing
+```groovy
+bat "docker run -d -p 3000:3000 --name juice-shop-dev juice-shop:${env.BUILD_NUMBER}"
+```
 
-[![GitHub contributors](https://img.shields.io/github/contributors/juice-shop/juice-shop.svg)](https://github.com/juice-shop/juice-shop/graphs/contributors)
-[![JavaScript Style Guide](https://img.shields.io/badge/code%20style-standard-brightgreen.svg)](http://standardjs.com/)
-[![Crowdin](https://d322cqt584bo4o.cloudfront.net/owasp-juice-shop/localized.svg)](https://crowdin.com/project/owasp-juice-shop)
-![GitHub issues by-label](https://img.shields.io/github/issues/juice-shop/juice-shop/help%20wanted.svg)
-![GitHub issues by-label](https://img.shields.io/github/issues/juice-shop/juice-shop/good%20first%20issue.svg)
+### Stage 7 — Health Check
 
-We are always happy to get new contributors on board! Please check
-[CONTRIBUTING.md](CONTRIBUTING.md) to learn how to
-[contribute to our codebase](CONTRIBUTING.md#code-contributions) or the
-[translation into different languages](CONTRIBUTING.md#i18n-contributions)!
+Polls the application with `curl` until it responds successfully or exhausts all retries. Retries up to 10 times with a 10-second pause between attempts, giving the application up to 100 seconds to become available before the stage fails.
 
-## References
+```groovy
+retry(10) {
+    sleep(time: 10, unit: 'SECONDS')
+    bat "curl -f http://localhost:3000"
+}
+```
 
-Did you write a blog post, magazine article or do a podcast about or mentioning OWASP Juice Shop? Or maybe you held or
-joined a conference talk or meetup session, a hacking workshop or public training where this project was mentioned?
+### Post — Publish Report
 
-Add it to our ever-growing list of [REFERENCES.md](REFERENCES.md) by forking and opening a Pull Request!
+The `post { always { } }` block runs regardless of which stage succeeded or failed. This ensures the Dependency-Check report is always published in Jenkins, even if a later stage (Docker Build, Deploy) fails — because the report is the primary security deliverable of the pipeline.
 
-## Merchandise
+```groovy
+post {
+    always {
+        dependencyCheckPublisher pattern: 'reports/dependency-check-report.xml'
+    }
+}
+```
 
-* On [Spreadshirt.com](http://shop.spreadshirt.com/juiceshop) and
-  [Spreadshirt.de](http://shop.spreadshirt.de/juiceshop) you can get some swag (Shirts, Hoodies, Mugs) with the official
-  OWASP Juice Shop logo
-* On
-  [StickerYou.com](https://www.stickeryou.com/products/owasp-juice-shop/794)
-  you can get variants of the OWASP Juice Shop logo as single stickers to decorate your laptop with. They can also print
-  magnets, iron-ons, sticker sheets and temporary tattoos.
+---
 
-## Donations
+## OWASP Dependency-Check Integration
 
-[![](https://img.shields.io/badge/support-owasp%20juice%20shop-blue)](https://owasp.org/donate/?reponame=www-project-juice-shop&title=OWASP+Juice+Shop)
+The Jenkins pipeline integrates **OWASP Dependency-Check** using the official Jenkins plugin to perform Software Composition Analysis (SCA) on project dependencies. The Dependency-Check stage scans `node_modules/` and `package-lock.json` against the NVD to identify CVEs in all direct and transitive dependencies.
 
-The OWASP Foundation gratefully accepts donations via Stripe. Projects such as Juice Shop can then request reimbursement
-for expenses from the Foundation. If you'd like to express your support of the Juice Shop project, please make sure to
-tick the "Publicly list me as a supporter of OWASP Juice Shop" checkbox on the donation form. You can find our more
-about donations and how they are used here:
+> **Important context**: OWASP Juice Shop intentionally includes vulnerable dependencies (e.g. `jsonwebtoken@0.4.0`, `sanitize-html@1.4.2`, `express-jwt@0.1.3`) as part of its security training design. The expected outcome of the scan is a large number of CVE findings — this is by design. The pipeline uses `--failOnCVSS 11` so the build is never blocked by these findings. The goal is detection and reporting, not build gating.
 
-<https://pwning.owasp-juice.shop/companion-guide/latest/part3/donations.html>
+### Pipeline Stage (Jenkinsfile)
 
-## Contributors
+The stage is fully implemented and active. The NVD API key is passed using `withEnv` to avoid Groovy string interpolation of the secret, following Jenkins security best practices. The `%DC_API_KEY%` syntax is Windows batch variable expansion, resolved at runtime by the shell rather than by Groovy.
 
-The OWASP Juice Shop Project Leaders are:
+```groovy
+stage('OWASP Dependency Check') {
+    steps {
+        bat 'if not exist reports mkdir reports'
+        withEnv(["DC_API_KEY=${NVD_API_KEY}"]) {
+            dependencyCheck(
+                odcInstallation: 'OWASP-DC',
+                additionalArguments: '--scan ./ --format HTML --format XML --out reports/ --prettyPrint --failOnCVSS 11 --nvdApiKey %DC_API_KEY%'
+            )
+        }
+    }
+}
+```
 
-- [Björn Kimminich](https://github.com/bkimminich) aka `bkimminich` [![Keybase PGP](https://img.shields.io/keybase/pgp/bkimminich)](https://keybase.io/bkimminich)
-- [Jannik Hollenbach](https://github.com/J12934) aka `J12934`
+The stage executes during every pipeline run. The scan cannot complete because the NVD API returns HTTP 503 responses during the initial vulnerability database bootstrap, as described in the [Troubleshooting & Investigation](#troubleshooting--investigation) section.
 
-For a list of all contributors to the OWASP Juice Shop please visit our
-[HALL_OF_FAME.md](HALL_OF_FAME.md).
+---
 
-## Licensing
+## NVD API Key Configuration
 
-[![license](https://img.shields.io/github/license/juice-shop/juice-shop.svg)](LICENSE)
+Without an NVD API key, the NVD imposes heavy rate limits on database downloads, making the initial bootstrap take many hours. An API key was obtained from the [NVD API portal](https://nvd.nist.gov/developers/request-an-api-key) and configured as follows:
 
-This program is free software: you can redistribute it and/or modify it under the terms of the [MIT license](LICENSE).
-OWASP Juice Shop and any contributions are Copyright © by Bjoern Kimminich & the OWASP Juice Shop contributors
-2014-2026.
+**Security practice applied**: The key is stored as a **Jenkins Secret Text Credential** (Credential ID: `NVD_API_KEY`) — never hardcoded in the `Jenkinsfile` or committed to source control. Jenkins injects and masks it at runtime.
 
-![Juice Shop Logo](https://raw.githubusercontent.com/juice-shop/juice-shop/master/frontend/src/assets/public/images/JuiceShop_Logo_400px.png)
+```groovy
+environment {
+    NVD_API_KEY = credentials('NVD_API_KEY')   // injected + masked in logs
+}
+```
+
+The key is injected into the scan via `withEnv`, which passes it as an OS environment variable rather than interpolating it directly into the Groovy string. This avoids the Jenkins secret interpolation warning and keeps the secret masked in console logs:
+
+```groovy
+withEnv(["DC_API_KEY=${NVD_API_KEY}"]) {
+    dependencyCheck(
+        odcInstallation: 'OWASP-DC',
+        additionalArguments: '... --nvdApiKey %DC_API_KEY%'  // Windows batch syntax
+    )
+}
+```
+
+This reflects standard production CI/CD practice: secrets are centrally managed by the CI system and securely consumed by pipelines without ever appearing in source code or logs.
+
+---
+
+## Troubleshooting & Investigation
+
+### Problem: NVD Database Initial Download Failure
+
+During the first execution of the Dependency-Check stage, the NVD API must download the complete vulnerability dataset (~363,000+ CVE records) before any scan can run. The download repeatedly failed due to **HTTP 503 (Service Unavailable)** responses from the NVD API, typically after reaching approximately **80% of the dataset**.
+
+This is an **external service availability issue**, not a problem with the pipeline configuration.
+
+### Approaches Evaluated
+
+All three approaches below were tested independently. Because all of them consume the same NVD API endpoint, they all exhibited identical behaviour when the NVD service became unavailable.
+
+---
+
+#### Approach 1 — Jenkins Dependency-Check Plugin
+
+Configured the official **OWASP Dependency-Check Jenkins Plugin** with a managed tool installation named `OWASP-DC`. The plugin was invoked directly from the Jenkinsfile using the `dependencyCheck` step with the NVD API key injected from Jenkins Credentials.
+
+**Outcome**: The plugin initiated the NVD database download successfully but received HTTP 503 responses from the NVD API before the download completed.
+
+![Jenkins plugin starting NVD download](screenshots/01-jenkins-plugin-dependency-check-start.png)
+
+*The Jenkins plugin begins the NVD database synchronisation.*
+
+![Jenkins plugin NVD API failure](screenshots/02-jenkins-plugin-nvd-api-failure.png)
+
+*HTTP 503 responses from the NVD API halt the download before it completes.*
+
+---
+
+#### Approach 2 — OWASP Dependency-Check Docker Image
+
+Tested the official `owasp/dependency-check` Docker image with a **persistent mounted data directory** (`C:\dependency-check-data`) to pre-populate the vulnerability database entirely outside Jenkins. The intent was to get the DB bootstrapped independently and then have Jenkins reuse it.
+
+**Outcome**: The Docker image successfully initialised and began downloading the NVD dataset, reaching approximately 80% before encountering the same HTTP 503 errors from the NVD API.
+
+![OWASP Docker image initialising](screenshots/03-owasp-docker-intialize.png)
+
+*The `owasp/dependency-check` Docker image begins NVD database initialisation.*
+
+![OWASP Docker download at 80%](screenshots/04-owasp-docker-download-progress-80-percent.png)
+
+*Download progresses to ~80% before the NVD API becomes unavailable.*
+
+![OWASP Docker NVD API 503 error](screenshots/05-owasp-docker-nvd-api-503-error.png)
+
+*HTTP 503 error from the NVD API terminates the download. All three methods share the same NVD backend and are equally affected.*
+
+---
+
+### Root Cause
+
+All three approaches—the Jenkins plugin, the Dependency-Check CLI, and the official Docker image—ultimately consume the same NVD REST API to download vulnerability data.
+
+Since every approach produced the same HTTP 503 response during the initial database bootstrap, changing the execution method did not eliminate the issue. This confirmed that the failure originated from the external NVD service rather than from the Jenkins pipeline, Dependency-Check configuration, or Docker environment.
+
+> The pipeline configuration and Dependency-Check integration are complete and functional. Successful execution of the initial vulnerability scan depends on the availability of the NVD API during the one-time database bootstrap.
+
+Once the vulnerability database is successfully initialized, subsequent pipeline executions will perform only incremental updates and the Dependency-Check stage is expected to complete within a few minutes.
+
+---
+
+## Results
+
+### CI/CD Pipeline
+
+The Jenkins pipeline successfully:
+
+| Step | Result |
+|---|---|
+| Checks out source code from GitHub | ✅ |
+| Verifies Node.js 24 on the agent | ✅ |
+| Installs all dependencies and builds the application | ✅ |
+| Builds a Docker image tagged with the build number | ✅ |
+| Stops and removes the previous container (idempotent) | ✅ |
+| Deploys the new container on port 3000 | ✅ |
+| Health-checks the live application with retry logic | ✅ |
+| OWASP Dependency-Check integration | ✅ Implemented |
+| Dependency scan execution | ⚠️ Blocked by NVD API (HTTP 503 during initial database download) |
+
+### Application Deployment
+
+The application is successfully deployed as a Docker container and is accessible on **http://localhost:3000** after every successful Jenkins pipeline execution. The Health Check stage verifies that the application is responding before the pipeline completes.
+
+#### Jenkins Pipeline Completed Successfully
+
+![Successful Jenkins build and deployment](screenshots/06-successful-jenkins-build-and-deployment.png)
+
+*All active pipeline stages complete successfully. The application is built, deployed, and verified through an automated health check.*
+
+#### OWASP Juice Shop Running on Localhost
+
+The successful deployment can be verified by accessing the application in a web browser at:
+
+```text
+http://localhost:3000
+```
+
+![OWASP Juice Shop running on localhost](screenshots/07-juice-shop-application-running-localhost.png)
+
+*OWASP Juice Shop successfully running on localhost after being built and deployed through the Jenkins pipeline.*
+
+---
+
+## How to Run
+
+### Prerequisites
+
+- Jenkins (running locally or via Docker)
+- Docker Desktop (for Docker commands on the Jenkins agent)
+- Node.js 22–26 on the Jenkins agent
+- Jenkins plugins installed:
+  - Git
+  - Pipeline
+  - OWASP Dependency-Check
+  - HTML Publisher
+
+### Jenkins Tool Configuration
+
+In **Jenkins → Manage Jenkins → Tools → Dependency-Check installations**:
+- Name: `OWASP-DC`
+- ✅ Install automatically → select latest version
+
+### Jenkins Credential Configuration
+
+In **Jenkins → Manage Jenkins → Credentials → Global**:
+- Kind: Secret Text
+- ID: `NVD_API_KEY`
+- Secret: *(your NVD API key from https://nvd.nist.gov/developers/request-an-api-key)*
+
+### Pipeline Setup
+
+1. Create a new **Pipeline** job in Jenkins
+2. Under **Pipeline** → Definition: `Pipeline script from SCM`
+3. SCM: Git → Repository URL: `https://github.com/Vasanth1602/juice-shop-devsecops-assessment.git`
+4. Branch: `*/main`
+5. Script Path: `Jenkinsfile`
+6. Click **Save** → **Build Now**
+
+### Verify the Deployment
+
+After a successful pipeline run:
+```bash
+# Confirm container is running
+docker ps
+
+# Open the application
+curl http://localhost:3000
+
+# Or open in browser
+http://localhost:3000
+```
+
+---
+
+## Future Improvements
+
+- Successfully complete the initial NVD vulnerability database bootstrap once the NVD API becomes available again so the existing Dependency-Check stage can generate HTML and XML vulnerability reports during pipeline execution
+- **Cache the NVD database** using `--data` pointing to a fixed path outside the workspace (e.g. `C:\jenkins-dc-data`) so it survives workspace cleans and only incremental updates are needed on subsequent runs
+- **Add npm audit** as a fast, lightweight SCA fallback that runs without an external database download
+- **Add build failure thresholds** — use `--failOnCVSS 7` to fail the pipeline on HIGH/CRITICAL CVEs in a production context (currently set to 11 to always pass, appropriate for this training application)
+- **Frontend dependency scan** — run a separate Dependency-Check scan against `frontend/node_modules` for complete coverage of both backend and Angular dependencies
+- **Notifications** — add email or Slack notifications on pipeline failure via Jenkins `post { failure { } }` block

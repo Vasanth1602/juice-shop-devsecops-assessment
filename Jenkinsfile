@@ -60,20 +60,21 @@ pipeline {
         // the report surfaces even if a later stage (Docker Build, Deploy)
         // fails.
         // ─────────────────────────────────────────────────────────────────
-        // stage('OWASP Dependency Check') {
-        //     steps {
-        //         bat 'if not exist reports mkdir reports'
-        //         dependencyCheck additionalArguments: """
-        //             --scan ./
-        //             --format HTML
-        //             --format XML
-        //             --out reports/
-        //             --prettyPrint
-        //             --failOnCVSS 11
-        //             --nvdApiKey ${NVD_API_KEY}
-        //         """, odcInstallation: 'OWASP-DC'
-        //     }
-        // }
+        stage('OWASP Dependency Check') {
+            steps {
+                bat 'if not exist reports mkdir reports'
+                // withEnv passes the secret as an OS environment variable.
+                // %DC_API_KEY% (Windows batch syntax) references it without
+                // Groovy interpolating the secret into the string — this avoids
+                // the Jenkins "secret passed via Groovy interpolation" warning.
+                withEnv(["DC_API_KEY=${NVD_API_KEY}"]) {
+                    dependencyCheck(
+                        odcInstallation: 'OWASP-DC',
+                        additionalArguments: '--scan ./ --format HTML --format XML --out reports/ --prettyPrint --failOnCVSS 11 --nvdApiKey %DC_API_KEY%'
+                    )
+                }
+            }
+        }
 
         // ─────────────────────────────────────────────────────────────────
         // STAGE 4 — Docker Build
@@ -137,10 +138,16 @@ pipeline {
 
     post {
         always {
-            echo 'Dependency Check temporarily disabled.'
             // Publish the DC report regardless of which stage failed.
-            // The report is the primary deliverable of this pipeline.
-            // dependencyCheckPublisher pattern: 'reports/dependency-check-report.xml'
+            // The fileExists guard prevents a misleading publisher error when
+            // the NVD download fails before the scan produces any output.
+            script {
+                if (fileExists('reports/dependency-check-report.xml')) {
+                    dependencyCheckPublisher pattern: 'reports/dependency-check-report.xml'
+                } else {
+                    echo '⚠️  Dependency-Check report not found — scan may not have completed.'
+                }
+            }
         }
         success { echo '🟢 Pipeline succeeded.' }
         failure { echo '🔴 Pipeline failed.' }
