@@ -95,8 +95,11 @@ pipeline {
         // ─────────────────────────────────────────────────────────────────
         stage('Stop & Remove Old Container') {
             steps {
-                bat "docker stop ${CONTAINER_NAME} || echo No container to stop."
-                bat "docker rm   ${CONTAINER_NAME} || echo No container to remove."
+                script {
+                    bat(returnStatus: true, script: "docker stop ${CONTAINER_NAME}")
+                    bat(returnStatus: true, script: "docker rm ${CONTAINER_NAME}")
+                }
+
                 echo '✅ Old container cleared.'
             }
         }
