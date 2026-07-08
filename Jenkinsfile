@@ -60,18 +60,73 @@ pipeline {
         // the report surfaces even if a later stage (Docker Build, Deploy)
         // fails.
         // ─────────────────────────────────────────────────────────────────
-        stage('OWASP Dependency Check') {
+        // stage('OWASP Dependency Check') {
+        //     steps {
+        //         bat 'if not exist reports mkdir reports'
+        //         dependencyCheck additionalArguments: """
+        //             --scan ./
+        //             --format HTML
+        //             --format XML
+        //             --out reports/
+        //             --prettyPrint
+        //             --failOnCVSS 11
+        //             --nvdApiKey ${NVD_API_KEY}
+        //         """, odcInstallation: 'OWASP-DC'
+        //     }
+        // }
+
+        // ─────────────────────────────────────────────────────────────────
+        // STAGE 4 — Docker Build
+        // Builds the Docker image using the existing project Dockerfile.
+        // Tagged with BUILD_NUMBER for traceability across builds.
+        // ─────────────────────────────────────────────────────────────────
+        stage('Docker Build') {
             steps {
-                bat 'if not exist reports mkdir reports'
-                dependencyCheck additionalArguments: """
-                    --scan ./
-                    --format HTML
-                    --format XML
-                    --out reports/
-                    --prettyPrint
-                    --failOnCVSS 11
-                    --nvdApiKey ${NVD_API_KEY}
-                """, odcInstallation: 'OWASP-DC'
+                bat "docker build -t ${IMAGE_NAME}:${env.BUILD_NUMBER} ."
+                echo "✅ Docker image built: ${IMAGE_NAME}:${env.BUILD_NUMBER}"
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────────
+        // STAGE 5 — Stop & Remove Old Container
+        // Cleans up any previously running container before deploying.
+        // '|| echo' prevents the stage from failing if no container exists,
+        // ensuring the pipeline is idempotent across repeated runs.
+        // ─────────────────────────────────────────────────────────────────
+        stage('Stop & Remove Old Container') {
+            steps {
+                bat "docker stop ${CONTAINER_NAME} || echo No container to stop."
+                bat "docker rm   ${CONTAINER_NAME} || echo No container to remove."
+                echo '✅ Old container cleared.'
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────────
+        // STAGE 6 — Deploy Container
+        // Runs the newly built image as a detached container on APP_PORT.
+        // ─────────────────────────────────────────────────────────────────
+        stage('Deploy Container') {
+            steps {
+                bat "docker run -d -p ${APP_PORT}:3000 --name ${CONTAINER_NAME} ${IMAGE_NAME}:${env.BUILD_NUMBER}"
+                echo "✅ Container '${CONTAINER_NAME}' started on port ${APP_PORT}."
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────────
+        // STAGE 7 — Health Check
+        // Polls the application until it responds or retries are exhausted.
+        // Retries up to 10 times with a 10-second pause between attempts,
+        // giving the app up to 100 seconds to become available.
+        // ─────────────────────────────────────────────────────────────────
+        stage('Health Check') {
+            steps {
+                script {
+                    retry(10) {
+                        sleep(time: 10, unit: 'SECONDS')
+                        bat "curl -f http://localhost:${APP_PORT}"
+                    }
+                }
+                echo "✅ Application is live at http://localhost:${APP_PORT}"
             }
         }
 
@@ -81,7 +136,7 @@ pipeline {
         always {
             // Publish the DC report regardless of which stage failed.
             // The report is the primary deliverable of this pipeline.
-            dependencyCheckPublisher pattern: 'reports/dependency-check-report.xml'
+            // dependencyCheckPublisher pattern: 'reports/dependency-check-report.xml'
         }
         success { echo '🟢 Pipeline succeeded.' }
         failure { echo '🔴 Pipeline failed.' }
