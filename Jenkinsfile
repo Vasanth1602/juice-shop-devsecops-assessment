@@ -134,6 +134,7 @@ pipeline {
 
     post {
         always {
+            echo 'Dependency Check temporarily disabled.'
             // Publish the DC report regardless of which stage failed.
             // The report is the primary deliverable of this pipeline.
             // dependencyCheckPublisher pattern: 'reports/dependency-check-report.xml'
